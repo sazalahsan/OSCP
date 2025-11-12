@@ -1,0 +1,8 @@
+# Treat Markdown files as text
+*.md text
+
+# Ensure scripts are executable
+scripts/* text eol=lf
+
+# Media files
+media/* binary
