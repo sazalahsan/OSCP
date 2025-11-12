@@ -1,0 +1,3 @@
+# Path Traversal — Sample Note
+
+...existing code from labs/path-traversal-sample.md...

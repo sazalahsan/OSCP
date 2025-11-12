@@ -1,0 +1,3 @@
+# Path / Directory Traversal Cheatsheet
+
+...existing code from cheatsheets/path-traversal.md...

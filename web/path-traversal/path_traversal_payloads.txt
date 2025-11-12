@@ -1,0 +1,3 @@
+../etc/passwd
+../../../../etc/passwd
+...existing code from resources/path_traversal_payloads.txt...
