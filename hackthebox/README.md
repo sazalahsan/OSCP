@@ -39,6 +39,7 @@ hackthebox/
 - **process/exploitation.md** – Vulnerability testing & exploitation workflow
 - **process/privilege-escalation.md** – PrivEsc techniques & detection methods
 - **process/template.md** – Markdown template for new writeups
+- **process/approach.md** – Pre‑HTB learning roadmap: what to learn before starting HTB (Linux, Windows, networking, tools, methodology)
 
 ## Tools
 
