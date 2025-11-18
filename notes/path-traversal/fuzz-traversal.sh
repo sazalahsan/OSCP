@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-# fuzz-traversal.sh — small wrapper to fuzz path-traversal vectors using ffuf or wfuzz
-...existing code from scripts/fuzz-traversal.sh...

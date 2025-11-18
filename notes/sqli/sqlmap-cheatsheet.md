@@ -1,3 +1,0 @@
-# sqlmap Cheatsheet
-
-...existing code from cheatsheets/sqlmap.md...

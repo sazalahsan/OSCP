@@ -1,4 +1,43 @@
-# CAPTCHA Bypass Techniques
+#CAPTCHA Bypass (Canonical)
+
+## Overview
+
+CAPTCHA challenges (image, audio, math) are anti-automation controls. Weak implementations often allow bypass through predictable tokens, reuse, or missing server-side validation.
+
+## When to test
+
+- Login, registration, password reset, comment posting, and other endpoints protected by CAPTCHA.
+
+## Detection Checklist
+
+- Check whether CAPTCHA is enforced server-side, whether tokens are single-use, and whether client-side-only checks exist.
+
+## Tools
+
+- Tesseract (OCR), speech-to-text tools, Burp Suite, custom automation scripts, third-party solving services.
+
+## Payloads / Patterns
+
+- Reuse valid token across requests, remove/modify CAPTCHA parameters, test accessible/alternative endpoints.
+
+## Commands / Quick Examples
+
+- Use `curl` to replay requests and verify server-side validation.
+
+## Exploitation Primitives
+
+- Bypass by reusing tokens, exploiting client-only checks, predicting simple CAPTCHAs, or using OCR/third-party solvers.
+
+## Mitigations / Notes for Reporting
+
+- Enforce server-side validation, single-use tokens, rate-limiting, and monitor for repeated failures.
+
+## Detailed Notes / Lab Content
+
+The original detailed notes are preserved below. Keep this canonical file as a short practical checklist and move long examples to `labs/` if needed.
+
+```markdown
+#CAPTCHA Bypass Techniques
 
 **What is CAPTCHA?**
 A challenge (image, audio, math, etc.) to distinguish humans from bots, often used to block brute-force, spam, or automated attacks.
@@ -20,3 +59,15 @@ A challenge (image, audio, math, etc.) to distinguish humans from bots, often us
 - Use per-request, single-use tokens.
 - Rate-limit and monitor failed attempts.
 - Use modern, adaptive CAPTCHAs (e.g., reCAPTCHA v3) and combine with other anti-automation controls.
+
+```
+
+---
+
+## Merged from archive/canonical/captcha.md
+
+
+## CAPTCHA (Canonical) (archived)
+
+Archived copy of `notes/canonical/captcha.md`. Use `notes/captcha.md` as the merged single-file topic.
+

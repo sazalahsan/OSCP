@@ -1,3 +1,0 @@
-# Sample SQLi Writeup (minimal)
-
-...existing code from labs/sqli-sample.md...

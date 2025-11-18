@@ -1,3 +1,0 @@
-# Unprotected Functionality (Vertical Privilege Escalation)
-
-...existing code from cheatsheets/unprotected-functionality.md...

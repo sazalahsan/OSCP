@@ -1,3 +1,47 @@
+#SSRF (Canonical) (archived)
+
+## SSRF — Quick Cheatsheet (Canonical)
+
+
+## Overview
+
+Server-side Request Forgery (SSRF) lets an attacker control server-originated requests to internal/external resources. It can expose internal services, cloud metadata, or local files.
+
+## When to test
+
+- Any parameter that accepts URLs or resource identifiers (`url=`, `endpoint=`, `image=`, `callback=`, `download=`).
+
+## Detection Checklist
+
+- Replace parameter with `http://127.0.0.1:80/` or cloud metadata addresses and observe differences.
+- Use OOB services (Burp Collaborator / Interactsh) for blind SSRF detection.
+
+## Tools
+
+- Burp Suite, Interactsh / Burp Collaborator, `curl`, `ffuf`, custom scripts.
+
+## Payloads / Patterns
+
+- `http://127.0.0.1/`, `http://169.254.169.254/latest/meta-data/`, `gopher://127.0.0.1:6379/_...`, `file:///etc/passwd`
+
+## Commands / Quick Examples
+
+- `curl -i "https://target/app?url=http://127.0.0.1:8080/status"`
+
+## Exploitation Primitives
+
+- Read internal endpoints, retrieve cloud metadata (IMDS), interact with internal services (Redis, Elasticsearch), use `gopher://` for raw TCP.
+
+## Mitigations / Notes for Reporting
+
+- Enforce allow-lists, disallow risky protocols, resolve DNS/IP before validation, and proxy outbound requests.
+
+## Detailed Notes / Lab Content
+
+The original detailed SSRF cheatsheet is preserved below for reference and lab examples. Keep this file as the short canonical reference and move long writeups to `labs/` if needed.
+
+---
+
 ## SSRF — Quick Cheatsheet
 
 ### Short definition
@@ -11,8 +55,6 @@
 1. Application accepts a URL or resource identifier (parameters like `url`, `img`, `fetch`, `endpoint`, `callback`, `download`, `proxy`).
 2. Server‑side code performs a fetch (HTTP client, curl, file_get_contents, requests, etc.) and returns or processes the response.
 3. If the destination is attacker controlled or not validated/canonicalized, the attacker can direct requests to internal-only addresses, metadata endpoints, or special protocols.
-
----
 
 ### Quick detection checklist (OSCP style)
 
@@ -30,8 +72,6 @@
 - Automation & fuzzing:
   - Small payload lists first (loopback, private ranges, metadata), then iterate hosts/ports.
   - Use ffuf, Burp Intruder, or custom scripts to fuzz parameter values.
-
----
 
 ### Useful payloads & test targets
 
@@ -56,8 +96,6 @@ Replace parameter value with these during tests.
   - `http://<unique>.burpcollaborator.net/`
   - `http://<your>.interact.sh/`
 
----
-
 ### Practical exploitation primitives
 
 - Immediate info leak: fetch internal HTTP endpoints and read returned content (admin pages, internal APIs).
@@ -67,8 +105,6 @@ Replace parameter value with these during tests.
 - Local file reads: `file://` or similar URIs can reveal files if the client fetcher returns file contents.
 - Pivoting: use SSRF to reach internal services (Elasticsearch, Kibana, Jenkins, Docker API) and chain further attacks.
 - Blind SSRF: rely on OOB channels (DNS/HTTP) to confirm requests when no content is returned.
-
----
 
 ### Example quick commands
 
@@ -85,14 +121,10 @@ OOB (blind) test:
 
 AWS metadata probe (only in labs):
 
-```
 http://169.254.169.254/latest/meta-data/iam/security-credentials/
 http://169.254.169.254/latest/meta-data/iam/security-credentials/<role-name>
-```
 
 When testing, prefer non‑destructive, read‑only probes and OOB detection first.
-
----
 
 ### Tools & approaches (OSCP relevant)
 
@@ -102,8 +134,6 @@ When testing, prefer non‑destructive, read‑only probes and OOB detection fir
 - curl, httpie, python requests for manual probing.
 - Small automation scripts to iterate internal IPs and common ports.
 
----
-
 ### Remediation (developer checklist)
 
 - Use an allow‑list (whitelist) of permitted destinations; reject everything else.
@@ -112,16 +142,13 @@ When testing, prefer non‑destructive, read‑only probes and OOB detection fir
 - Disallow risky protocols (gopher://, file://) unless explicitly needed and strictly controlled.
 - Proxy outbound requests through a hardened application proxy that enforces policies and logging.
 - Log outgoing requests to internal/metadata endpoints and alert on suspicious patterns.
-- Harden cloud metadata services: enable IMDSv2 on AWS and use instance roles with least privilege.
-
----
 
 ### Safety & ethics
 
 - Only test on systems you own or are explicitly authorized to test (OSCP labs, CTFs, company assets with permission).
 - Document test steps and avoid destructive commands unless permitted.
 
----
+- Harden cloud metadata services: enable IMDSv2 on AWS and use instance roles with least privilege.
 
 If you want, I can also:
 
@@ -129,6 +156,9 @@ If you want, I can also:
 - produce a Burp Intruder payload list or ffuf wordlist from the payload section, or
 - add a short `ssrf-lab.md` with step‑by‑step lab exercise examples.
 
----
-
 File created from an OSCP‑friendly SSRF summary (compact, checklist style).
+
+## Merged from archive/canonical/ssrf.md
+
+Archived copy of `notes/canonical/ssrf.md`. Use `notes/ssrf.md` as the merged single-file topic.
+

