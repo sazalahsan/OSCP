@@ -177,123 +177,191 @@ Focus on:
 * **Unquoted Service Paths**
 * **Privilege escalation via scheduled tasks**
 * **DLL hijacking**
-* **Credential hunting in:**
+# Methodology — Consolidated Process
 
-  * registry
-  * unattended.xml
-  * WinRM logs
-  * browser histories
+This document consolidates the `process/` folder into a single, ordered methodology reference for reconnaissance, exploitation, and privilege escalation. It combines best-practices, checklists and recommended workflows.
 
-**Why:**
-Privilege escalation almost always derives from *trust relationships* or *misplaced permissions*.
+## Contents
 
----
-
-# **5. Lateral Movement & Pivoting (For Domain Machines)**
-
-### Steps seen across boxes like Forest, Active, Blackfield:
-
-1. **Gain low-priv domain account** (anonymous LDAP, SMB loot, leaked creds)
-
-2. **Map AD permissions** using:
-
-   * `bloodhound-python`
-   * `rpcclient`
-   * `GetNPUsers`, `GetUserSPNs`
-
-3. **Exploit trust relationships**
-
-   * Weak Kerberos encryption → offline cracking
-   * ACL misconfig → add yourself to groups
-   * Password reuse across services
-
-4. **Obtain higher-priv credentials**
-
-   * Dumping LSASS (if possible)
-   * Gaining DCSync rights
-   * Abusing constrained delegation
-
-**Reasoning:**
-
-> AD is a web of trust. Break one weak link; climb upwards.
+- Introduction & Approach
+- Enumeration Checklist
+- Machine Checklist (OSCP-style flow)
+- Exploitation Workflow
+- Privilege Escalation Methodology
+- Notes & References
 
 ---
 
-# **6. Documentation & Mindset During Attack**
+## Introduction & Approach
 
-Good attackers write down:
+This section captures the recommended learning path and mindset before attacking HTB/OSCP-style machines. Focus on foundational skills (Linux, Windows, networking), core tools, and a repeatable methodology: Enumeration → Exploitation → Privilege Escalation → Post-Exploitation.
 
-* What they tried
-* What worked
-* What changed
+Key learning areas:
 
-This avoids repeating failed approaches and supports faster lateral movement.
+- Linux fundamentals (filesystem, permissions, systemctl, common CLI tools, bash scripting)
+- Windows fundamentals (PowerShell, services, registry, AD basics)
+- Networking basics (TCP/IP, DNS, HTTP/HTTPS)
+- Tools: `nmap`, `gobuster`/`ffuf`, Burp Suite, `sqlmap`, `netcat`
+- Mindset: patience, curiosity, systematic note-taking
 
-### Mental model during exploitation:
+Recommended progression before intermediate/advanced boxes:
 
-* *What am I exploiting?* (bug type)
-* *Why does it work?* (misconfig, logic error, oversight)
-* *What does it give me?* (information, code execution, credentials)
-* *How can this access be turned into something bigger?*
-
----
-
-# **7. The Universal Exploitation Loop**
-
-The entire HTB methodology can be summarized as:
-
-1. **Enumerate** → discover surface
-2. **Fingerprint** → understand technologies
-3. **Analyze** → identify vulnerabilities
-4. **Exploit** → obtain foothold
-5. **Escalate** → gain elevated privileges
-6. **Pivot** → expand control
-7. **Loot** → extract credentials / data
-8. **Repeat** until Admin/System/Root
-
-**This loop appears in every single HTB box.**
+1. PortSwigger Academy — web fundamentals
+2. TryHackMe — Jr PenTester pathway
+3. OverTheWire (Bandit) — Linux CLI practice
+4. HTB Starting Point → easy HTB boxes → medium/hard boxes
 
 ---
 
-# **8. Tools: Not What, But Why**
+## Enumeration Checklist
 
-### Why Enumeration Tools?
+Systematic reconnaissance and service enumeration for every machine.
 
-Because attackers must transform uncertainty into certainty.
+### Phase 1: Host Discovery
 
-### Why Exploitation Tools?
+- Ping sweep (if applicable)
+- Identify target IP/hostname
+- Document target OS from early probes
 
-To weaponize vulnerabilities that would be tedious manually.
+### Phase 2: Port Scanning
 
-### Why Post-Exploitation Tools?
+- Initial quick scan: `nmap -p- --open -T4 <target>`
+- Service/version detection: `nmap -sV -sC -p <ports> -oN nmap-detailed.txt <target>`
 
-To observe the environment from inside and discover new paths.
+### Phase 3: HTTP/HTTPS Enumeration
 
-### Why Scripting / One-liners?
+- Manual inspection (browser)
+- Directory fuzzing: `gobuster`, `ffuf`, `dirsearch`
+- Check `robots.txt`, `sitemap.xml`, JS files for endpoints
+- Intercept traffic with Burp Suite and map parameters/endpoints
 
-Automation eliminates human error and speeds up repetitive tasks.
+### Phase 4: SMB / FTP / DB / SSH Enumeration
+
+- SMB: `smbclient -L //<IP>/`, `enum4linux`
+- FTP: test anonymous login
+- DB: attempt connections, check default creds
+- SSH: banner/version checks
+
+### Phase 5: Credential Harvesting & Vulnerability Mapping
+
+- Search files/configs for credentials (LFI, uploads, repo files)
+- Cross-reference versions with Exploit-DB / searchsploit
+- Document all findings and prepare for exploitation
 
 ---
 
-# **9. Strategic Patterns Across the Playlist**
+## HackTheBox Machine Checklist (OSCP-style)
 
-Across the playlist machines, attackers consistently:
+Use this flow for every box — start to finish.
 
-* Look for **cred leakage** in SMB, LDAP, source code, backups
-* Use cracked passwords to access multiple services
-* Treat Active Directory as an **attack graph**, not a single target
-* Use enumeration tools to build hypotheses
-* Validate hypotheses with manual testing
-* Abuse **trust relationships** more often than actual software 'bugs'
+### Pre-Engagement
+
+- Create machine folder and notes file
+- Start VPN and confirm connectivity
+- Add discovered hostnames to `/etc/hosts` as needed
+
+### Initial Recon / Enumeration
+
+- Run `nmap` scans and record open ports & services
+- Use `gobuster`/`ffuf` for web directories
+- Note any admin panels, upload endpoints, or API routes
+
+### Identify & Exploit Foothold
+
+- Prioritize vectors (LFI, SQLi, file upload, RCE, auth bypass)
+- Validate vulnerabilities manually before automating
+- Host payloads and catch reverse shells (nc, socat)
+- Stabilize shells and gather initial post-exploitation info
+
+### Post-Exploitation
+
+- Run initial enumeration (`id`, `sudo -l`, `uname -a`, `find` for SUID)
+- Search for credentials, cron jobs, writable scripts, and capabilities
+
+### Flags & Documentation
+
+- Capture `user.txt` and `root.txt` (or platform equivalents)
+- Record full exploitation chain, commands, and evidence
 
 ---
 
-# **10. Final Takeaways**
+## Exploitation Workflow
 
-* HackTheBox machines reward **methodical exploration**, not guessing.
-* Tools are helpers; *the attacker’s reasoning is the real weapon*.
-* Always pivot from data → hypothesis → validation.
-* A solid methodology outperforms deep CVE knowledge.
-* Reuse patterns: the same misconfigs appear in many forms.
+A structured approach to vulnerability testing and exploitation.
 
-**This methodology mirrors the exact reasoning IppSec demonstrates in the playlist.**
+### Pre‑Exploitation
+
+- Review enumeration and prioritize by likely impact & feasibility
+- Prepare tools and shell handlers
+
+### Vulnerability Validation
+
+- Confirm POC, understand the input → processing → output chain
+- Map what access level an exploit provides (user, service, system)
+
+### Web Application Exploits (common)
+
+- SQL Injection (manual tests + `sqlmap`)
+- RCE via file upload, command injection, SSTI, or deserialization
+- LFI leading to RCE through log poisoning or wrappers
+- Unprotected functionality and auth bypasses
+
+### System/Network Exploits
+
+- Research CVEs with `searchsploit` and adapt PoCs
+- Test misconfigurations (default creds, open shares, exposed management)
+
+### Shell Acquisition & Stabilization
+
+- Establish reverse/bind shell, stabilize TTY, check execution context
+
+### Post‑Exploit Enumeration
+
+- Enumerate user, groups, services, mounted filesystems, and network
+- Locate sensitive files and escalation vectors
+
+---
+
+## Privilege Escalation Methodology
+
+Techniques for escalating from an initial shell to root/SYSTEM.
+
+### Linux Privesc (ordered checklist)
+
+1. Information gathering: `whoami`, `id`, `sudo -l`, kernel version, container checks
+2. SUID/GUID binaries: `find / -perm -4000 2>/dev/null`
+3. Writable directories & scripts: look for scripts executed by root or cron
+4. Sudo misconfigurations: test `sudo -l` results (wildcards, binaries that allow shell escapes)
+5. Cron jobs: inspect `/etc/crontab`, `/etc/cron.d/*`, user crons
+6. Capabilities: `getcap -r / 2>/dev/null`
+7. Kernel exploits (last resort): research CVEs for local privilege escalation
+8. Credential hunting: history files, config files, SSH keys
+
+### Windows Privesc (ordered checklist)
+
+1. Information gathering: `whoami /priv`, `systeminfo`, check UAC and patches
+2. Service enumeration: unquoted service paths, writable service directories
+3. Token abuse: SeImpersonatePrivilege and impersonation tools
+4. Registry and file permissions: writable HKLM, scripts, installers
+5. Scheduled tasks: check tasks running as SYSTEM or admin
+6. Known CVEs & service exploits
+
+---
+
+## Notes, Tools & Resources
+
+Helpful tools referenced throughout the methodology:
+
+- `nmap`, `gobuster`/`ffuf`, `burp suite`, `sqlmap`, `netcat`, `searchsploit`
+- Enumeration scripts: `linPEAS`, `winPEAS`, `LinEnum`
+- Privilege escalation resources: GTFOBins, HackTricks, Exploit-DB
+
+Guidelines
+
+- Keep methodical notes and capture exact commands and outputs
+- Prefer manual validation over blind automation
+- When merging notes or archives, keep section headers like `Merged from <path>` for traceability
+
+---
+
+*This consolidated methodology was generated by combining the individual files in the `process/` folder. If you'd like a different section order, more detail in any area, or a TOC with internal links, tell me and I'll refine it.*
