@@ -40,82 +40,6 @@ Abnormalities lead to exploitation.
 
 # **2. High-Level Workflow (Across Almost All HTB Boxes)**
 
-## **Phase 1: Enumeration**
-
-The attacker’s first responsibility is to understand the target.
-
-### **2.1 Network Enumeration**
-
-* **Nmap full scans**
-
-  * `nmap -sC -sV -oA scan target`
-  * Full port scan when needed: `nmap -p- -T4 target`
-
-**Why:**
-
-* Detect services, versions, and potential misconfigurations.
-* Build a profile: OS type, roles (AD, web server, mail), likely attack vectors.
-##### Scanning & Enumeration
-
-- `nmap` (aggressive scan, scripts, service detection)
-- `nikto`, `gobuster`/`ffuf`, `dirsearch`
-
-##### Web exploitation basics
-
-- Understanding HTTP requests
-- Burp Suite (proxy, repeater, intruder)
-- Manual testing of parameters
-
-##### Exploitation
-
----
-
-### 5️⃣ Post-Exploitation Enumeration (Once Foothold Gained)
-
-##### 🐧 Linux
-
-- [ ] Check user, groups, sudo:
-
-```
-id
-sudo -l
-```
-
-- [ ] Enumerate system:
-
-```
-uname -a
-lsb_release -a
-```
-
-- [ ] Search for sensitive files:
-
-```
-find / -perm -4000 2>/dev/null
-ls -la /home
-```
-
-- [ ] Look for credentials:
-
-  - .bash_history
-  - config files
-  - cron jobs
-  - backups
-  - NFS mounts
-- [ ] Check capabilities:
-
-```
-getcap -r / 2>/dev/null
-```
-
-##### 🪟 Windows
-
-- [ ] Run winPEAS / PowerUp
-- [ ] Check privileges:
-
-```
-whoami /priv
-```markdown
 # Attacker Methodology — Cleaned & Organized
 
 This file consolidates the `process/` folder into a single, non-redundant reference. Content is ordered from basics → intermediate → advanced. Similar topics are grouped together and repeated items removed.
@@ -160,7 +84,8 @@ Checklist before attacking a target:
 - Prepare listeners and temporary hosts (nc, socat, python http.server)
 
 Quick commands (examples):
-```
+
+```bash
 mkdir -p ~/labs/<machine>
 cd ~/labs/<machine>
 openvpn ~/keys/htb.ovpn
@@ -174,24 +99,24 @@ python3 -m http.server 8000
 
 Principle: start broad, then focus. Record everything.
 
-3.1 Host discovery
+### 3.1 Host discovery
 - Confirm host is up (ping / nmap ping) and note any hostnames
 
-3.2 Port scanning
+### 3.2 Port scanning
 - Initial fast scan: `nmap -p- -T4 --min-rate 1000 <target>`
 - Service detection: `nmap -sV -sC -p <ports> -oN nmap-service.txt <target>`
 
-3.3 Service-specific enumeration (per open port)
+### 3.3 Service-specific enumeration (per open port)
 - Web (80/443/8080…): browse manually, intercept with Burp, enumerate directories/endpoints (`gobuster`, `ffuf`), inspect JS for endpoints/credentials
 - SMB (445/139): `smbclient -L //<IP>/`, try anonymous, enumerate shares, download configs
 - Databases: attempt connections (MySQL, PostgreSQL, Mongo, MSSQL), test default credentials, search for file write or credential storage
 - SSH/WinRM/RDP: banner/version checks; save for later credential testing
 
-3.4 Automated and manual helpers
+### 3.4 Automated and manual helpers
 - Use both manual inspection and quick automated checks: `nikto`, `searchsploit`, `enum4linux`, `ffuf`
 - Keep lists of endpoints, parameters, and interesting responses in your notes
 
-3.5 Credential harvesting
+### 3.5 Credential harvesting
 - Search discovered files, backups, config files, JS, and logs for credentials
 - Try found credentials across all services (password reuse is common)
 
@@ -199,46 +124,119 @@ Principle: start broad, then focus. Record everything.
 
 ## 4. Exploitation workflow
 
-4.1 Prioritize
+### 4.1 Prioritize
 - Rank candidates by impact, ease, and risk (e.g., RCE > info disclosure > fingerprinting)
 
-4.2 Validate first
+### 4.2 Validate first
 - Reproduce a minimal POC manually before running automated exploit code
 
-4.3 Web exploitation categories (common):
+### 4.3 Web exploitation categories (common)
 - Injection: SQLi (extract DB), LDAPi, command injection
 - File handling: LFI, RFI, path traversal, file upload
 - Server-side flaws: SSTI, deserialization, insecure deserialization
 - Unprotected functionality: admin panels, API endpoints without auth
 
-4.4 System / network exploitation:
+### 4.4 System / network exploitation
 - Look up versions in Exploit-DB / searchsploit and adapt PoC code
 - Test for default creds, open shares, and exposed management interfaces
 
-4.5 Shell acquisition & stabilization:
+### 4.5 Shell acquisition & stabilization
 - Acquire a shell (reverse/bind), then stabilize (pty), gather context (`whoami`, `id`, `pwd`)
-- Example stabilization:
-```
+
+Example stabilization:
+
+```bash
 python3 -c 'import pty; pty.spawn("/bin/bash")'
-CTRL-Z; stty raw -echo; fg; export TERM=xterm
+# then in your terminal:
+# CTRL-Z; stty raw -echo; fg; export TERM=xterm
 ```
 
-4.6 Documentation during exploitation:
+### 4.6 Documentation during exploitation
 - Record exact payloads, commands, outputs, and any artifacts used
 
 ---
 
 ## 5. Post-exploitation & stabilization
 
-5.1 Initial enumeration (once a shell is available)
+### 5.1 Initial enumeration (once a shell is available)
 - User & groups: `whoami`, `id`, `groups`
 - System: `uname -a`, `cat /etc/os-release`
 - Sudo: `sudo -l`
 - Running processes & network: `ps aux`, `netstat -tunlp` or `ss -tunlp`
 
-5.2 Search for immediate escalators
+### 5.2 Search for immediate escalators
 - Config files, credentials, SSH keys, backups, world-writable scripts
 - Cron jobs and systemd timers that run as root
+
+### 5.3 Lateral movement (where applicable)
+- If credentials or tokens are found, attempt internal pivots (SSH, SMB, RPC)
+- For AD environments, enumerate domain users/groups and use BloodHound-style reasoning
+
+### 5.4 Persistence & cleanup (labs only when allowed)
+- Prefer ephemeral access for CTFs; avoid persistence unless required
+- Clean temporary files and payloads if you're asked to by lab rules
+
+---
+
+## 6. Privilege escalation (ordered checklists)
+
+Principle: escalate using the least destructive, highest-leverage method first. Document every step.
+
+### 6.1 Linux checklist (order to try)
+1. `whoami`, `id`, `sudo -l` (check sudo rules)
+2. Search for credentials in home, webroot, config files: `grep -R "password" /var/www /home /etc 2>/dev/null`
+3. SUID binaries: `find / -perm -4000 -type f 2>/dev/null`
+4. Writable files/scripts run by root (cron, /etc/cron.*, systemd unit files)
+5. World-writable directories and PATH issues
+6. File capabilities: `getcap -r / 2>/dev/null`
+7. Docker / container checks: `cat /.dockerenv`, `ls -la /var/run/docker.sock`
+8. Kernel exploits (last resort) — match kernel version to public CVEs carefully
+
+### 6.2 Windows checklist (order to try)
+1. `whoami /priv`, `systeminfo`, check patch level
+2. Service paths (unquoted service path) and writable service binaries
+3. Scheduled tasks that run as SYSTEM or admin
+4. Weak ACLs on files or registry keys
+5. Token impersonation (SeImpersonatePrivilege) and token theft
+6. AD-specific: AS-REP roast, Kerberoast, weak group policies
+
+---
+
+### 7. Tools & resources (authoritative list)
+
+Scanning & enumeration:
+- `nmap`, `masscan`, `enum4linux`, `ss`, `netstat`
+
+Web testing:
+- Burp Suite, `ffuf`, `gobuster`, `nikto`, `sqlmap`
+
+Exploitation & post-exploit:
+- `nc`, `socat`, `msfvenom` (sparingly), custom Python scripts
+- Enumeration scripts: `linPEAS`, `winPEAS`, `LinEnum`
+
+AD & Windows tools:
+- Impacket suite, `evil-winrm`, BloodHound, `kerbrute`, `hashcat`
+
+Reference resources:
+- Exploit-DB / searchsploit, GTFOBins, HackTricks, OWASP, PacketNotes
+
+---
+
+## 8. Notes, documentation & ethics
+
+- Keep consistent notes: commands, outputs, nmap results, screenshots where useful
+- Use source markers when merging content (e.g., `Merged from: checklist.md`) — earlier merges included these markers in history
+- Prefer manual validation over blindly running exploits
+- Follow lab/CTF rules: do not attempt persistence or destructive actions on shared infrastructure unless allowed
+
+---
+
+If you want, I can:
+- Add an internal TOC with anchors
+- Run a dedupe pass to remove near-duplicate lines (needs review)
+- Export this as a printable checklist or Obsidian-friendly note
+
+<!-- consolidated from process/*.md -->
 
 5.3 Lateral movement (where applicable)
 - If credentials or tokens are found, attempt internal pivots (SSH, SMB, RPC)
